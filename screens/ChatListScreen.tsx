@@ -33,12 +33,23 @@ export default function ChatListScreen({ navigation, route }) {
   useFocusEffect(
     React.useCallback(() => {
       const fetchUsers = async () => {
-        setLoading(true);
+        // Only show loading if we don't have users yet to prevent flicker and state reset
+        if (users.length === 0) setLoading(true);
+        
         try {
           const response = await fetch(`${BACKEND_URL}/users?current_user_id=${userId}`);
           if (response.ok) {
             const data = await response.json();
-            setUsers(data);
+            // Preserve our local 'hasBeenSeen' and 'unreadCount' status when updating the list
+            setUsers(prevUsers => {
+              return data.map(newUser => {
+                const existingUser = prevUsers.find(u => u.id === newUser.id);
+                if (existingUser) {
+                  return { ...newUser, ...existingUser }; // Keep local state like hasBeenSeen
+                }
+                return newUser;
+              });
+            });
           }
         } catch (error) {
           console.error('Error fetching users:', error);
@@ -47,10 +58,17 @@ export default function ChatListScreen({ navigation, route }) {
         }
       };
       if (userId) fetchUsers();
-    }, [userId])
+    }, [userId, users.length])
   );
 
   const handleChatPress = async (otherUser) => {
+    // Correctly update local state to clear the unread count
+    setUsers(prevUsers => 
+      prevUsers.map(u => 
+        u.id === otherUser.id ? { ...u, unreadCount: 0, hasBeenSeen: true } : u
+      )
+    );
+    
     try {
       const response = await fetch(`${BACKEND_URL}/chat-init?user1=${userId}&user2=${otherUser.id}`);
       if (response.ok) {
@@ -69,6 +87,9 @@ export default function ChatListScreen({ navigation, route }) {
   const renderItem = ({ item, index }) => {
     const color = AVATAR_COLORS[index % AVATAR_COLORS.length];
     const initials = item.name ? item.name.charAt(0).toUpperCase() : '?';
+    
+    // Only show count if it's explicitly provided in the data (no simulation)
+    const displayCount = item.unreadCount || 0;
 
     return (
       <TouchableOpacity
@@ -89,6 +110,13 @@ export default function ChatListScreen({ navigation, route }) {
           <Text className="text-white font-semibold text-base">{item.name}</Text>
           <Text className="text-[#9ca3af] text-sm mt-0.5">{item.mobile_number}</Text>
         </View>
+
+        {/* Unread Count Bubble */}
+        {displayCount > 0 && (
+          <View className="bg-[#6C63FF] min-w-[24px] h-6 rounded-full items-center justify-center px-1.5 mr-2">
+            <Text className="text-white text-xs font-bold">{displayCount}</Text>
+          </View>
+        )}
 
         {/* Arrow */}
         <View className="bg-[#1e1e3a] rounded-full w-8 h-8 items-center justify-center">

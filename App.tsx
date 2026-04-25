@@ -36,7 +36,7 @@ export default function App() {
         }}
       >
         <Stack.Screen name="LoginSignup" component={LoginSignupScreen} options={{ headerShown: false }} />
-        <Stack.Screen name="ChatList" component={ChatListScreen} options={{ title: 'Messages', headerShown: false }} />
+        <Stack.Screen name="ChatList" component={ChatListScreen} options={{ title: 'Messages', headerShown: true }} />
         <Stack.Screen name="ChatWindow" component={ChatWindowScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
       </Stack.Navigator>
