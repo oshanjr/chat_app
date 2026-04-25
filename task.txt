@@ -1,0 +1,55 @@
+# Project Overview
+Act as an expert Full-Stack Mobile Developer. I need to build a real-time Chat Application within 24 hours. The project requires strict adherence to a specific technology stack and architecture. 
+
+Please generate the complete codebase, configuration files, and documentation content step-by-step as outlined below. Do not deviate from the requested technologies.
+
+## 1. Technology Stack
+* **Frontend:** React Native (TypeScript/JavaScript).
+* **UI Styling:** NativeWind (Tailwind for React Native) or clean inline styles.
+* **Backend:** Java Servlets.
+* **Database ORM:** Hibernate.
+* **Database:** MySQL (Local).
+* **Real-time Communication:** WebSockets (Java API for WebSocket on the server, native WebSocket API on the client).
+
+## 2. Database Configuration & Design
+Generate the Hibernate `hibernate.cfg.xml` and the corresponding Java Entity classes based on this schema:
+* **MySQL Credentials:** * URL: `jdbc:mysql://localhost:3306/chatapp_db`
+    * Username: `root` (Assume root unless specified)
+    * Password: `Oshan@2004`
+* **Entities to Generate:**
+    1.  `User`: id (PK), username, password, contact_number.
+    2.  `Chat`: chatId (PK), participants (mapping to Users), timestamp.
+    3.  `Message`: messageId (PK), chatId (FK), senderId (FK), text, timestamp, status.
+
+## 3. Backend Implementation (Java Servlets + WebSockets)
+Generate the following backend components suitable for deployment on Apache Tomcat or GlassFish:
+* **Authentication:** Java Servlets for `/login` and `/signup`. Use standard session handling or basic token generation.
+* **WebSocket Handler:** A server endpoint (e.g., `@ServerEndpoint("/chat/{chatId}")`) to handle real-time incoming and outgoing messages. It must broadcast messages to the correct connected sessions.
+* **REST APIs:** A Servlet to fetch chat history/recent conversations via `Fetch API` from the client.
+
+## 4. Frontend Implementation (React Native)
+Generate the functional React Native components. Design the UI with a sleek, matte black dark theme by default, ensuring smooth UI transitions and a professional look.
+* **Screens:**
+    1.  `LoginSignupScreen`: User authentication forms.
+    2.  `ChatListScreen`: Displays a list of all recent conversations with alerts for new messages.
+    3.  `ChatWindowScreen`: The individual chat interface with chat bubbles. Must connect to the WebSocket endpoint `ws://[local-ip]:[port]/chat/{chatId}` for live messaging.
+    4.  `ProfileScreen`: Simple screen to update user info.
+* **State Management:** React Hooks (`useState`, `useEffect`) to manage incoming WebSocket messages dynamically.
+
+## 5. Documentation Generation
+Generate the raw markdown text for a comprehensive project documentation report that I will convert to a PDF. Include the following sections:
+* **Title Page Details:** * Project: Handheld Device Programming I - Chat Application
+    * Student Name: Oshan J. Rupasinghe
+* **System Architecture:** Explanation of Client, Server, Communication, and Database layers.
+* **Features:** Bullet points of implemented capabilities.
+* **Diagram Specifications:** Provide PlantUML or Mermaid.js code so I can generate:
+    * An ER Diagram (Entity-Relationship).
+    * A Use Case Diagram (Login, send/receive messages).
+    * A Class Diagram (User, Chat, Message, WebSocketHandler).
+* **Implementation Details:** Brief explanations of frontend, backend, security measures (token/session, secure WebSockets), testing methods, and future enhancements.
+
+## Execution Rules
+1. Start by providing the SQL script to create the database and tables.
+2. Next, provide the Java Backend code (Entities, `hibernate.cfg.xml`, Servlets, and WebSocket Server).
+3. Then, provide the React Native code (App navigation, Screens, WebSocket Client logic).
+4. Finally, generate the Documentation markdown.
