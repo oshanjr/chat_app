@@ -41,6 +41,23 @@ public class UsersServlet extends HttpServlet {
                 obj.addProperty("id", u.getId());
                 obj.addProperty("name", u.getUsername());
                 obj.addProperty("mobile_number", u.getContactNumber());
+                
+                // Count unread messages from this user to current user
+                if (currentUserIdStr != null) {
+                    Long unreadCount = (Long) session.createQuery(
+                            "SELECT COUNT(m) FROM Message m " +
+                            "JOIN m.chat c JOIN c.participants p " +
+                            "WHERE m.sender.id = :senderId " +
+                            "AND p.id = :currentUserId " +
+                            "AND m.status = 'SENT'")
+                        .setParameter("senderId", u.getId())
+                        .setParameter("currentUserId", Integer.parseInt(currentUserIdStr))
+                        .uniqueResult();
+                    obj.addProperty("unreadCount", unreadCount);
+                } else {
+                    obj.addProperty("unreadCount", 0);
+                }
+                
                 jsonArray.add(obj);
             }
 

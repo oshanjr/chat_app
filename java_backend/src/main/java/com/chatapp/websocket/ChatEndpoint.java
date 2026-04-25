@@ -27,6 +27,18 @@ public class ChatEndpoint {
     public void onOpen(Session session, @PathParam("chatId") String chatId) {
         chatRooms.putIfAbsent(chatId, Collections.synchronizedSet(new HashSet<>()));
         chatRooms.get(chatId).add(session);
+        
+        // Mark messages in this chat as SEEN when someone joins
+        try (org.hibernate.Session dbSession = HibernateUtil.getSessionFactory().openSession()) {
+            Transaction tx = dbSession.beginTransaction();
+            dbSession.createQuery("UPDATE Message m SET m.status = 'SEEN' WHERE m.chat.chatId = :cId")
+                    .setParameter("cId", Integer.parseInt(chatId))
+                    .executeUpdate();
+            tx.commit();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        
         System.out.println("Session " + session.getId() + " joined chat " + chatId);
     }
 
