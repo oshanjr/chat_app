@@ -1,8 +1,10 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, FlatList, TouchableOpacity, StatusBar, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
 const BACKEND_URL = 'http://10.124.63.36:8080/chatapp';
+
+const AVATAR_COLORS = ['#6C63FF', '#e94560', '#f59e0b', '#10b981', '#3b82f6', '#8b5cf6'];
 
 export default function ChatListScreen({ navigation, route }) {
   const { userId, username, mobileNumber } = route.params || {};
@@ -11,9 +13,18 @@ export default function ChatListScreen({ navigation, route }) {
 
   React.useLayoutEffect(() => {
     navigation.setOptions({
+      title: 'Chats',
+      headerStyle: { backgroundColor: '#0a0a1a' },
+      headerTintColor: '#EAEAEA',
+      headerTitleStyle: { fontWeight: 'bold', fontSize: 22 },
       headerRight: () => (
-        <TouchableOpacity onPress={() => navigation.navigate('Profile', { userId, username, mobileNumber })}>
-          <Text style={{ color: '#0a84ff', fontSize: 16, marginRight: 15 }}>Profile</Text>
+        <TouchableOpacity
+          className="mr-4 bg-[#6C63FF] w-9 h-9 rounded-full items-center justify-center"
+          onPress={() => navigation.navigate('Profile', { userId, username, mobileNumber })}
+        >
+          <Text className="text-white font-bold text-base">
+            {username ? username.charAt(0).toUpperCase() : '?'}
+          </Text>
         </TouchableOpacity>
       ),
     });
@@ -22,6 +33,7 @@ export default function ChatListScreen({ navigation, route }) {
   useFocusEffect(
     React.useCallback(() => {
       const fetchUsers = async () => {
+        setLoading(true);
         try {
           const response = await fetch(`${BACKEND_URL}/users?current_user_id=${userId}`);
           if (response.ok) {
@@ -34,10 +46,7 @@ export default function ChatListScreen({ navigation, route }) {
           setLoading(false);
         }
       };
-      
-      if (userId) {
-        fetchUsers();
-      }
+      if (userId) fetchUsers();
     }, [userId])
   );
 
@@ -46,113 +55,87 @@ export default function ChatListScreen({ navigation, route }) {
       const response = await fetch(`${BACKEND_URL}/chat-init?user1=${userId}&user2=${otherUser.id}`);
       if (response.ok) {
         const data = await response.json();
-        navigation.navigate('ChatWindow', { 
-          chatId: data.chatId, 
-          chatName: otherUser.name, 
-          userId 
+        navigation.navigate('ChatWindow', {
+          chatId: data.chatId,
+          chatName: otherUser.name,
+          userId,
         });
-      } else {
-        console.error('Failed to initialize chat');
       }
     } catch (error) {
-      console.error('Error connecting to chat:', error);
+      console.error('Error initializing chat:', error);
     }
   };
 
-  const renderItem = ({ item }) => (
-    <TouchableOpacity 
-      style={styles.chatItem}
-      onPress={() => handleChatPress(item)}
-    >
-      <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{item.name.charAt(0).toUpperCase()}</Text>
-      </View>
-      <View style={styles.chatDetails}>
-        <View style={styles.chatHeader}>
-          <Text style={styles.chatName}>{item.name}</Text>
-          <Text style={styles.chatTime}>{item.mobile_number}</Text>
+  const renderItem = ({ item, index }) => {
+    const color = AVATAR_COLORS[index % AVATAR_COLORS.length];
+    const initials = item.name ? item.name.charAt(0).toUpperCase() : '?';
+
+    return (
+      <TouchableOpacity
+        className="flex-row items-center bg-[#13132b] mx-4 mb-3 p-4 rounded-2xl border border-[#2a2a4a] active:opacity-70"
+        onPress={() => handleChatPress(item)}
+        activeOpacity={0.75}
+      >
+        {/* Avatar */}
+        <View
+          className="w-14 h-14 rounded-2xl items-center justify-center mr-4"
+          style={{ backgroundColor: color + '33' }}
+        >
+          <Text className="text-2xl font-bold" style={{ color }}>{initials}</Text>
         </View>
-        <Text style={styles.lastMessage} numberOfLines={1}>Tap to chat</Text>
-      </View>
-    </TouchableOpacity>
-  );
+
+        {/* Info */}
+        <View className="flex-1">
+          <Text className="text-white font-semibold text-base">{item.name}</Text>
+          <Text className="text-[#9ca3af] text-sm mt-0.5">{item.mobile_number}</Text>
+        </View>
+
+        {/* Arrow */}
+        <View className="bg-[#1e1e3a] rounded-full w-8 h-8 items-center justify-center">
+          <Text className="text-[#6C63FF] text-base">›</Text>
+        </View>
+      </TouchableOpacity>
+    );
+  };
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center' }]}>
-        <ActivityIndicator size="large" color="#0a84ff" />
+      <View className="flex-1 bg-[#0a0a1a] items-center justify-center">
+        <ActivityIndicator size="large" color="#6C63FF" />
+        <Text className="text-[#9ca3af] mt-3">Loading contacts...</Text>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <View className="flex-1 bg-[#0a0a1a]">
+      <StatusBar barStyle="light-content" backgroundColor="#0a0a1a" />
+
+      {/* Welcome Header */}
+      <View className="px-5 pt-4 pb-2">
+        <Text className="text-[#9ca3af] text-sm">
+          Welcome back, <Text className="text-[#6C63FF] font-semibold">{username}</Text>
+        </Text>
+        <Text className="text-white text-xl font-bold mt-1">
+          {users.length} {users.length === 1 ? 'Contact' : 'Contacts'} Available
+        </Text>
+      </View>
+
       {users.length === 0 ? (
-        <Text style={styles.emptyText}>No users found. Invite some friends!</Text>
+        <View className="flex-1 items-center justify-center px-10">
+          <Text className="text-6xl mb-4">👥</Text>
+          <Text className="text-white text-xl font-semibold text-center">No contacts yet</Text>
+          <Text className="text-[#9ca3af] text-center mt-2">When other users sign up, they will appear here.</Text>
+        </View>
       ) : (
         <FlatList
           data={users}
-          keyExtractor={item => item.id.toString()}
+          keyExtractor={(item) => item.id.toString()}
           renderItem={renderItem}
-          contentContainerStyle={{ padding: 10 }}
+          contentContainerStyle={{ paddingTop: 12, paddingBottom: 20 }}
+          showsVerticalScrollIndicator={false}
         />
       )}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#121212',
-  },
-  emptyText: {
-    color: '#888',
-    textAlign: 'center',
-    marginTop: 50,
-    fontSize: 16,
-  },
-  chatItem: {
-    flexDirection: 'row',
-    padding: 15,
-    backgroundColor: '#1e1e1e',
-    borderRadius: 12,
-    marginBottom: 10,
-    alignItems: 'center',
-  },
-  avatar: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#333',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 15,
-  },
-  avatarText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: 'bold',
-  },
-  chatDetails: {
-    flex: 1,
-  },
-  chatHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 5,
-  },
-  chatName: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  chatTime: {
-    color: '#888',
-    fontSize: 12,
-  },
-  lastMessage: {
-    color: '#aaa',
-    fontSize: 14,
-  },
-});

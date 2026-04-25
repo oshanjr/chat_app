@@ -1,5 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, FlatList, StyleSheet, KeyboardAvoidingView, Platform, ActivityIndicator } from 'react-native';
+import {
+  View, Text, TextInput, TouchableOpacity, FlatList,
+  KeyboardAvoidingView, Platform, ActivityIndicator, StatusBar
+} from 'react-native';
 
 const BACKEND_URL = 'http://10.124.63.36:8080/chatapp';
 const WS_URL = 'ws://10.124.63.36:8080/chatapp/chat';
@@ -9,15 +12,20 @@ export default function ChatWindowScreen({ route, navigation }) {
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [loading, setLoading] = useState(true);
+  const [connected, setConnected] = useState(false);
   const wsRef = useRef(null);
   const flatListRef = useRef(null);
 
   React.useLayoutEffect(() => {
-    navigation.setOptions({ title: chatName });
+    navigation.setOptions({
+      title: chatName,
+      headerStyle: { backgroundColor: '#0a0a1a' },
+      headerTintColor: '#EAEAEA',
+      headerTitleStyle: { fontWeight: 'bold' },
+    });
   }, [navigation, chatName]);
 
   useEffect(() => {
-    // Fetch historical messages
     const fetchMessages = async () => {
       try {
         const response = await fetch(`${BACKEND_URL}/history?userId=${userId}&chatId=${chatId}`);
@@ -33,10 +41,10 @@ export default function ChatWindowScreen({ route, navigation }) {
     };
     fetchMessages();
 
-    // Connect to native WebSocket Server
     wsRef.current = new WebSocket(`${WS_URL}/${chatId}`);
 
     wsRef.current.onopen = () => {
+      setConnected(true);
       console.log('Connected to Java WebSocket');
     };
 
@@ -46,147 +54,133 @@ export default function ChatWindowScreen({ route, navigation }) {
     };
 
     wsRef.current.onerror = (e) => {
+      setConnected(false);
       console.error('WebSocket error:', e.message);
     };
 
+    wsRef.current.onclose = () => {
+      setConnected(false);
+    };
+
     return () => {
-      if (wsRef.current) {
-        wsRef.current.close();
-      }
+      if (wsRef.current) wsRef.current.close();
     };
   }, [chatId, userId]);
 
   const sendMessage = () => {
     if (inputText.trim() && wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
-      const payload = {
-        senderId: userId,
-        text: inputText.trim()
-      };
+      const payload = { senderId: userId, text: inputText.trim() };
       wsRef.current.send(JSON.stringify(payload));
       setInputText('');
     }
   };
 
-  const renderMessage = ({ item }) => {
-    const isMe = item.senderId === userId;
-    // Attempt to parse standard Java Date string or just use as is
-    let timeString = item.timestamp;
+  const formatTime = (timestamp) => {
     try {
-      if (item.timestamp) {
-        const d = new Date(item.timestamp);
-        if (!isNaN(d.getTime())) {
-          timeString = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        }
+      if (!timestamp) return '';
+      const d = new Date(timestamp);
+      if (!isNaN(d.getTime())) {
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       }
     } catch (e) {}
+    return '';
+  };
+
+  const renderMessage = ({ item, index }) => {
+    const isMe = String(item.senderId) === String(userId);
+    const timeStr = formatTime(item.timestamp);
+    const prevItem = index > 0 ? messages[index - 1] : null;
+    const isFirstInGroup = !prevItem || String(prevItem.senderId) !== String(item.senderId);
 
     return (
-      <View style={[styles.messageBubble, isMe ? styles.myBubble : styles.otherBubble]}>
-        <Text style={styles.messageText}>{item.text}</Text>
-        <Text style={styles.messageTime}>{timeString}</Text>
+      <View className={`px-4 ${isFirstInGroup ? 'mt-3' : 'mt-1'} ${isMe ? 'items-end' : 'items-start'}`}>
+        <View
+          className={`rounded-3xl px-4 py-3 max-w-[78%] ${
+            isMe
+              ? 'bg-[#6C63FF] rounded-br-md'
+              : 'bg-[#13132b] border border-[#2a2a4a] rounded-bl-md'
+          }`}
+        >
+          <Text className="text-white text-base leading-5">{item.text}</Text>
+          {timeStr ? (
+            <Text className={`text-xs mt-1 ${isMe ? 'text-[#c5c2ff]' : 'text-[#6b7280]'} text-right`}>
+              {timeStr}
+            </Text>
+          ) : null}
+        </View>
       </View>
     );
   };
 
   if (loading) {
     return (
-      <View style={[styles.container, { justifyContent: 'center' }]}>
-        <ActivityIndicator size="large" color="#0a84ff" />
+      <View className="flex-1 bg-[#0a0a1a] items-center justify-center">
+        <ActivityIndicator size="large" color="#6C63FF" />
+        <Text className="text-[#9ca3af] mt-3">Loading messages...</Text>
       </View>
     );
   }
 
   return (
-    <KeyboardAvoidingView 
-      style={styles.container}
+    <KeyboardAvoidingView
+      className="flex-1 bg-[#0a0a1a]"
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       keyboardVerticalOffset={90}
     >
+      <StatusBar barStyle="light-content" backgroundColor="#0a0a1a" />
+
+      {/* Connection status bar */}
+      {!connected && !loading && (
+        <View className="bg-[#e94560] px-4 py-2 items-center">
+          <Text className="text-white text-xs font-medium">Connecting to chat...</Text>
+        </View>
+      )}
+
       <FlatList
         ref={flatListRef}
         data={messages}
-        keyExtractor={(item, index) => item.messageId ? item.messageId.toString() : index.toString()}
+        keyExtractor={(item, index) =>
+          item.messageId ? item.messageId.toString() : `tmp-${index}`
+        }
         renderItem={renderMessage}
-        contentContainerStyle={{ padding: 15 }}
+        contentContainerStyle={{ paddingTop: 12, paddingBottom: 16 }}
+        showsVerticalScrollIndicator={false}
         onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
         onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
+        ListEmptyComponent={
+          <View className="flex-1 items-center justify-center pt-20">
+            <Text className="text-5xl mb-3">👋</Text>
+            <Text className="text-white font-semibold text-lg">Say hello!</Text>
+            <Text className="text-[#9ca3af] text-sm mt-1 text-center px-8">
+              This is the beginning of your conversation with {chatName}.
+            </Text>
+          </View>
+        }
       />
-      <View style={styles.inputContainer}>
-        <TextInput
-          style={styles.input}
-          placeholder="Type a message..."
-          placeholderTextColor="#888"
-          value={inputText}
-          onChangeText={setInputText}
-          multiline
-        />
-        <TouchableOpacity style={styles.sendButton} onPress={sendMessage}>
-          <Text style={styles.sendButtonText}>Send</Text>
+
+      {/* Input Area */}
+      <View className="flex-row items-end px-3 py-3 bg-[#0d0d20] border-t border-[#1e1e3a]">
+        <View className="flex-1 bg-[#13132b] rounded-3xl px-4 py-3 border border-[#2a2a4a] mr-2 min-h-[46px] max-h-[110px] justify-center">
+          <TextInput
+            className="text-white text-base"
+            placeholder="Message..."
+            placeholderTextColor="#4a4a6a"
+            value={inputText}
+            onChangeText={setInputText}
+            multiline
+            onSubmitEditing={sendMessage}
+          />
+        </View>
+        <TouchableOpacity
+          className={`w-12 h-12 rounded-full items-center justify-center ${
+            inputText.trim() ? 'bg-[#6C63FF]' : 'bg-[#2a2a4a]'
+          }`}
+          onPress={sendMessage}
+          activeOpacity={0.8}
+        >
+          <Text className="text-white text-xl">➤</Text>
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#121212',
-  },
-  messageBubble: {
-    padding: 15,
-    borderRadius: 20,
-    marginBottom: 10,
-    maxWidth: '80%',
-  },
-  myBubble: {
-    backgroundColor: '#0a84ff',
-    alignSelf: 'flex-end',
-    borderBottomRightRadius: 5,
-  },
-  otherBubble: {
-    backgroundColor: '#1e1e1e',
-    alignSelf: 'flex-start',
-    borderBottomLeftRadius: 5,
-  },
-  messageText: {
-    color: '#fff',
-    fontSize: 16,
-  },
-  messageTime: {
-    color: '#ccc',
-    fontSize: 10,
-    alignSelf: 'flex-end',
-    marginTop: 5,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    padding: 10,
-    backgroundColor: '#1e1e1e',
-    alignItems: 'flex-end',
-  },
-  input: {
-    flex: 1,
-    backgroundColor: '#2c2c2e',
-    color: '#fff',
-    padding: 12,
-    borderRadius: 20,
-    fontSize: 16,
-    maxHeight: 100,
-    minHeight: 40,
-  },
-  sendButton: {
-    marginLeft: 10,
-    backgroundColor: '#0a84ff',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 20,
-    justifyContent: 'center',
-    marginBottom: 2,
-  },
-  sendButtonText: {
-    color: '#fff',
-    fontWeight: 'bold',
-    fontSize: 16,
-  },
-});
